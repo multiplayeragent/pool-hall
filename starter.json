@@ -1,0 +1,21 @@
+{
+  "name": "Pool Hall",
+  "genre": "sports",
+  "dim": "2D",
+  "mode": "Turn-based",
+  "players": "2–4",
+  "hook": "Solids or stripes. Clear your seven, then sink the 8.",
+  "how": "Take turns on one felt table: drag back to aim and set power, let go to shoot. Pot a ball of your group to shoot again; a foul gives the other side ball in hand. Sink the 8 last to win. Three or four players split into two teams and rotate.",
+  "controls": "Drag back from anywhere to aim and set power, let go to shoot (mouse or finger); arrow keys fine-tune, Space shoots",
+  "uses": [
+    ["Leaderboard", "Most wins, shown on the results card."],
+    ["Host-run physics", "The host's browser runs every shot and applies the rules; if it leaves, the next player takes over."],
+    ["Bots", "Bots shoot in the empty seats, and take over for anyone who leaves."],
+    ["Live sync", "Everyone sees the shooter's cue move and the same roll, ball for ball."]
+  ],
+  "ideas": [
+    "Add a trick-shot mode with a target zone on the table",
+    "Make it a neon space table with glowing balls",
+    "Add a shot clock that gets shorter every turn"
+  ]
+}
