@@ -37,6 +37,7 @@
   .card h2 { margin: 0 0 4px; font-size: 26px; color: #ffcf5a; }
   .card h3 { margin: 14px 0 4px; font-size: 13px; color: #9fe0b4; text-align: left; }
   .card ol { margin: 0; padding-left: 24px; font-size: 14px; text-align: left; }
+  .card li.note { list-style: none; margin-left: -24px; text-align: center; opacity: .8; } /* a message, not a ranked row */
   .card li span { float: right; font-variant-numeric: tabular-nums; }
   .card p { margin: 8px 0 0; font-size: 13px; opacity: .8; }
   button.go { width: 100%; min-height: 48px; margin-top: 14px; border: 0; border-radius: 12px; background: #ffcf5a; color: #3a2600; font: 800 17px system-ui, sans-serif; cursor: pointer; }
@@ -56,7 +57,7 @@
 <div class="hud" id="net">Connecting…</div>
 <div id="over" hidden><div class="card">
   <h2 id="overTitle"></h2><div id="overSub"></div>
-  <h3>Most wins</h3><ol id="board"><li>Loading…</li></ol>
+  <h3>Most wins</h3><ol id="board"><li class="note">Loading…</li></ol>
   <button class="go" id="again">Play again</button><p id="next"></p>
 </div></div>
 <script>
@@ -365,7 +366,7 @@ function judge(g, shot) {
   if (eightIn) {
     if (brk) balls[8] = nearestFree(balls, FOOT_X, 0, false); // the 8 on the break comes back to the foot spot
     else if (cleared && !foul) { win = t; why = "sank the 8"; }
-    else { win = 1 - t; why = foul ? "fouled on the 8" : "sank the 8 too early"; }
+    else { win = 1 - t; why = !cleared ? "sank the 8 too early" : "fouled on the 8"; }
   }
   let assigned = "";
   if (!brk && !foul && win < 0 && !grp[t] && objPots.length) { assigned = groupOf(objPots[0]); grp[t] = assigned; grp[1 - t] = assigned === "s" ? "t" : "s"; }
@@ -440,12 +441,11 @@ function finishShot(g) {
     if (j.again) out.turn = sh.s;
     else { const lastBy = [...g.lastBy]; lastBy[t] = sh.s; out = { ...out, lastBy, team: 1 - t, turn: nextInTeam(g, 1 - t, g.lastBy[1 - t]) }; }
     if (j.foul || !j.balls[0]) out.inHand = 1;
-    const next = seatName(g.seats[out.turn]);
-    if (j.foul) { txt = `Foul: ${j.foul}. Ball in hand for ${next}`; kind = "foul"; }
+    if (j.foul) { txt = `Foul: ${j.foul}.`; kind = "foul"; } // each screen adds "Ball in hand for <name or you>" (see hud)
     else if (j.assigned) { txt = `${who} takes ${GROUP_NAME[j.assigned]}`; kind = "gold"; }
     else if (j.objPots.length) txt = j.again ? `${who} sinks ${j.objPots.length > 1 ? j.objPots.length + " balls" : "the " + j.objPots[0]}` : "";
   }
-  return writeGame({ ...out, res: { n: g.shotN, txt, k: kind } });
+  return writeGame({ ...out, res: { n: g.shotN, txt, k: kind, hand: kind === "foul" ? out.turn : -1 } });
 }
 function hostTick(now) {
   if (!host.acting) adopt();
@@ -781,7 +781,7 @@ function teamHtml(g, t) {
 let teamKey = "";
 function hud(g) {
   const resKey = g.res ? g.id + ":" + g.res.n : resSeen ?? ""; // a new call-out: show it (not the one already there when I joined)
-  if (resKey !== resSeen && resSeen !== null && g.res && g.res.txt && !ATTRACT) toast(g.res.txt, g.res.k);
+  if (resKey !== resSeen && resSeen !== null && g.res && g.res.txt && !ATTRACT) toast(g.res.hand >= 0 ? `${g.res.txt} Ball in hand for ${g.res.hand === mySeat(g) ? "you" : seatName(g.seats[g.res.hand])}` : g.res.txt, g.res.k);
   resSeen = resKey;
   if (ATTRACT) { for (const id of ["teamA", "teamB", "turn", "hint", "net"]) $(id).textContent = ""; $("teamA").style.display = $("teamB").style.display = "none"; $("over").hidden = true; return; }
   const key = [g.v, g.turn, me.color, JSON.stringify(g.seats.map((s) => seatName(s) + seatColor(s)))].join("|");
@@ -801,18 +801,19 @@ function hud(g) {
   if (g.phase === "over") {
     const winners = teamNames(g, g.win), mineWon = i >= 0 && g.seats[i].t === g.win;
     $("overTitle").textContent = mineWon ? "You win!" : `${winners.join(" & ")} win${winners.length === 1 && winners[0] !== "You" ? "s" : ""}!`;
-    $("overSub").textContent = g.why === "sank the 8" ? "The 8-ball went down clean." : `The other side ${g.why}.`;
+    const losers = teamNames(g, 1 - g.win);
+    $("overSub").textContent = g.why === "sank the 8" ? "The 8-ball went down clean." : `${losers.join(" & ")} ${g.why}.`;
     $("next").textContent = `New rack in ${Math.max(0, Math.ceil((g.endsAt - Date.now()) / 1000))}s`;
     if (me.shownFor !== g.id) { me.shownFor = g.id; showBoard(mineWon); sfx("win"); }
   }
 }
 function showBoard(won) {
   const list = $("board");
-  if (!board) { list.innerHTML = "<li>Leaderboards need a connection.</li>"; return; }
-  list.innerHTML = "<li>Loading…</li>";
+  if (!board) { list.innerHTML = "<li class='note'>Leaderboards need a connection.</li>"; return; }
+  list.innerHTML = "<li class='note'>Loading…</li>";
   (won ? board.submit(1, "inc").catch(() => null) : Promise.resolve()).then(() => board.top(10)).then(({ entries }) => {
-    list.innerHTML = entries.length ? entries.map((e) => `<li>${esc(e.username || "Player")}<span>${e.score}</span></li>`).join("") : "<li>No wins yet. Be the first.</li>";
-  }).catch(() => { list.innerHTML = "<li>Couldn't load the leaderboard.</li>"; });
+    list.innerHTML = entries.length ? entries.map((e) => `<li>${esc(e.username || "Player")}<span>${e.score}</span></li>`).join("") : "<li class='note'>No wins yet. Be the first.</li>";
+  }).catch(() => { list.innerHTML = "<li class='note'>Couldn't load the leaderboard.</li>"; });
 }
 $("again").onclick = () => { if (isHost()) host.again = true; else net.send("again", {}); };
 
@@ -859,6 +860,7 @@ addEventListener("keydown", (e) => {
   if (k === "ArrowUp") me.p = clamp(me.p + 0.05, 0, 1); if (k === "ArrowDown") me.p = clamp(me.p - 0.05, 0, 1);
   if ((k === " " || k === "Enter") && !e.repeat) { if (me.p < 0.02) me.p = 0.5; shoot(); }
 });
+cv.addEventListener("contextmenu", (e) => e.preventDefault()); // a right-button drag aims like the left one, no menu
 $("spin").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); setSpin(me.sp === 0 ? 0.6 : me.sp > 0 ? -0.6 : 0); });
 document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
 
