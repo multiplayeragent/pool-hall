@@ -371,7 +371,7 @@ function judge(g, shot) {
   let assigned = "";
   if (!brk && !foul && win < 0 && !grp[t] && objPots.length) { assigned = groupOf(objPots[0]); grp[t] = assigned; grp[1 - t] = assigned === "s" ? "t" : "s"; }
   const ownPot = grp[t] ? objPots.some((i) => groupOf(i) === grp[t]) : objPots.length > 0;
-  const again = win < 0 && !foul && (brk ? objPots.length > 0 : ownPot);
+  const again = win < 0 && !foul && (brk ? objPots.length > 0 || eightIn : ownPot); // the 8 on the break is spotted again and the breaker shoots on
   if (cueIn) balls[0] = 0;
   return { balls, grp, foul, again, win, why, assigned, objPots };
 }
@@ -421,7 +421,7 @@ function fixSeats(g) {
 }
 /** Check a shot and start it: run it to the end now, so the host knows what happens and when. */
 function startShot(g, m) {
-  const a = r4(+m.a || 0), p = r4(clamp(+m.p || 0, 0.02, 1)), sp = clamp(Math.round((+m.sp || 0) * 10) / 10, -1, 1);
+  const a = isFinite(+m.a) ? r4(+m.a) : 0, p = r4(clamp(+m.p || 0, 0.02, 1)), sp = clamp(Math.round((+m.sp || 0) * 10) / 10, -1, 1);
   let x = g.balls[0] ? g.balls[0][0] : HEAD_X, y = g.balls[0] ? g.balls[0][1] : 0;
   if (g.inHand) { [x, y] = [r1(+m.x), r1(+m.y)]; if (!isFinite(x + y) || !freeSpot(g.balls, x, y, g.inHand === 2)) [x, y] = nearestFree(g.balls, isFinite(x) ? x : HEAD_X, isFinite(y) ? y : 0, g.inHand === 2); }
   const shot = { n: g.shotN, s: g.turn, a, p, sp, x, y };
@@ -860,6 +860,10 @@ addEventListener("keydown", (e) => {
   if (k === "ArrowUp") me.p = clamp(me.p + 0.05, 0, 1); if (k === "ArrowDown") me.p = clamp(me.p - 0.05, 0, 1);
   if ((k === " " || k === "Enter") && !e.repeat) { if (me.p < 0.02) me.p = 0.5; shoot(); }
 });
+/** A pull that ends without a pointerup (the tab lost focus, the browser took the pointer): drop it, no shot. */
+function dropDrag() { if (drag && !drag.place) me.p = 0; drag = null; }
+cv.addEventListener("lostpointercapture", (e) => { if (drag && drag.id === e.pointerId) dropDrag(); });
+addEventListener("blur", dropDrag);
 cv.addEventListener("contextmenu", (e) => e.preventDefault()); // a right-button drag aims like the left one, no menu
 $("spin").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); setSpin(me.sp === 0 ? 0.6 : me.sp > 0 ? -0.6 : 0); });
 document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
